@@ -1,6 +1,10 @@
 README.md
 ================
+<<<<<<< HEAD
 Jiawen
+=======
+Jiawen chen
+>>>>>>> 9c073e5e7b96ebe18845e1cc74e45420a16bbc2e
 2022-09-07
 
 ``` r
