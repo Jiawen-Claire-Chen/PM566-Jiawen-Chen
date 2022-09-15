@@ -1,0 +1,216 @@
+---
+title: "README.md"
+author: "Jiawen"
+date: "2022-09-07"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN="http://cran.rstudio.com"))
+```
+
+
+```{r}
+download.file("https://raw.githubusercontent.com/USCbiostats/data-science-data/master/02_met/met_all.gz", "met_all.gz", method="libcurl", timeout = 60)
+met <- data.table::fread("met_all.gz")
+```
+
+```{r}
+dim(met)
+```
+```{r}
+head(met)
+```
+
+```{r}
+tail(met)
+```
+
+```{r}
+str(met)
+```
+
+```{r}
+table(met$year)
+```
+
+```{r}
+table(met$day)
+```
+
+```{r}
+table(met$hour)
+```
+
+```{r}
+summary(met$temp)
+```
+
+```{r}
+summary(met$elev)
+
+summary(met$wind.sp)
+```
+
+```{r}
+met[met$elev==9999.0] <- NA
+summary(met$elev)
+
+met <- met[temp>-40]
+met2 <- met[order(temp)]
+head(met2)
+
+met <- met[temp>-15]
+met2 <- met[order(temp)]
+head(met2)
+
+elev <- met[elev==max(elev)]
+summary(elev)
+
+cor(elev$temp, elev$wind.sp, use="complete")
+
+cor(elev$temp, elev$hour, use="complete")
+
+cor(elev$wind.sp, elev$day, use="complete")
+
+cor(elev$wind.sp, elev$hour, use="complete")
+
+cor(elev$temp, elev$day, use="complete")
+```
+
+install.packages("leaflet")
+
+```{r}
+hist(met$elev, breaks=100)
+
+hist(met$temp)
+
+hist(met$wind.sp)
+
+library(tidyverse)
+
+#leaflet(elev) %>%
+#  addProviderTiles('OpenStreetMap') %>% 
+#  addCircles(lat=~lat,lng=~lon, opacity=1, fillOpacity=1, radius=100)
+```
+
+```{r}
+library(lubridate)
+elev$date <- with(elev, ymd_h(paste(year, month, day, hour, sep= ' ')))
+summary(elev$date)
+
+elev <- elev[order(date)]
+head(elev)
+```
+
+```{r}
+plot(elev$date, elev$temp, type='l')
+
+plot(elev$date, elev$wind.sp, type='l')
+```
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```             
+
+
+
+##2. Prepare the data Remove temperatures less than -17C Make sure there are no missing data in the key variables coded as 9999, 999, etc
+```{r}
+library(data.table)
+met<- met[temp>-17][elev == 9999, elev := NA]
+```
+
+Generate a date variable using the functions as.Date() (hint: You will need the following to create a date paste(year, month, day, sep = "-")).
+```{r create-ymd, cache=TRUE}
+met <- met[ ,ymd :=as.Date(paste(year, month, day, sep = "-"))]
+```
+
+Using the data.table::week function, keep the observations of the first week of the month.
+# the year of 
+```{r}
+met[, table(week(ymd))]
+met <- met[week(ymd) == 31]
+```
+
+Compute the mean by station of the variables temp, rh, wind.sp, vis.dist, dew.point, lat, lon, and elev.
+```{r check-mean}
+met_avg <- met[, .(
+  temp = mean(temp,na.rm=T),
+  rh = mean(rh,rm=T),
+  wind.sp = mean(wind.sp,rm=T),
+  vis.dist = mean(vis.dist,rm=T),
+  dew.point = mean(dew.point,rm=T),
+  lat = mean(lat,rm=T),
+  lon = mean(lon,rm=T),
+  elev = mean(elev,rm=T)
+),by="USAFID"]
+```
+
+Create a region variable for NW, SW, NE, SE based on lon = -98.00 and lat = 39.71 degrees
+```{r}
+met_avg[,region := fifelse(lon >= -98 & lat > 39.71,"NE",
+               fifelse(lon < -98 & lat > 39.71,"NW",
+               fifelse(lon < -98 & lat <= 39.71,"SW","SE")))]
+table(met_avg$region)
+```
+Create a categorical variable for elevation as in the lecture slides
+```{r}
+met_avg[, elev := fifelse(elev > 252,"high","low")]
+```
+
+##3.Use geom_violin to examine the wind speed and dew point temperature by region
+```{r}
+met_avg[!is.na(region)] %>% 
+  ggplot() + 
+  geom_violin(mapping = aes(x=1, y=dew.point, color=region, fill = region)) + 
+  facet_wrap(~ region, nrow = 1)
+```
+##4.Use geom_jitter with stat_smooth to examine the association between dew point temperature and wind speed by region
+```{r scatterplot-dewpoint-wind.sp}
+met_avg[!is.na(region) & !is.na(wind.sp) & !is.na(dew.point)] %>% 
+  ggplot(mapping = aes(x=wind.sp, y=dew.point)) + 
+  geom_point(mapping=aes(color=region)) + 
+  geom_smooth(mapping = aes(linetype = region))+
+  facet_wrap(~region, nrow = 2)
+```
+comment on these results 
+
+##5.Use geom_bar to create barplots of the weather stations by elevation category coloured by region
+
+##6. Use stat_summary to examine mean dew point and wind speed by region with standard deviation error bars
+```{r}
+ met_avg[!is.na(region)& !is.na(dew.point)] %>%
+  ggplot() + 
+    stat_summary(mapping = aes(x = region, y = dew.point),
+    fun.min = min,
+    fun.max = max,
+    fun.data = mean_sdl)
+```
+##7.Make a map showing the spatial trend in relative h in the US
+# Generating a color palette
+```{r}
+#install.packages("terra")
+#install.packages("raster")
+#install.packages("leaflet")
+#library("leaflet")
+#rh.pal <- colorNumeric(c('darkgreen','goldenrod','brown'),domain=met_avg2$rh)
+#leaflet()%>%
+#addTiles() %>%
+#the looks of the map
+#addProviderTiles('CartoDB.Positron') %>% 
+  # Some circles
+  #addCircles(
+    #lat = ~lat, lng=~lon,
+  # HERE IS OUR PAL!
+    #label = ~paste0(round(rh), ' C'), color = ~ rh.pal(rh),
+    #opacity = 1, fillOpacity = 1, radius = 500
+   # ) %>%
+
+  # And a pretty legend
+ # addLegend('bottomleft', pal=rh.pal, values=met_avg2$rh,
+         # title='Temperature, C', opacity=1)
+```
+#
+
