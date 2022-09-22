@@ -1,0 +1,66 @@
+
+#1. Read in the data using data.table(). For each of the two datasets, check the dimensions, headers, footers, variable names and variable types. Check for any data issues, particularly in the key variable we are analyzing. Make sure you write up a summary of all of your findings.
+```{r}
+met1 <- data.table::fread("2004.csv")
+met2 <- data.table::fread("2019.csv")
+dim(met1)
+dim(met2)
+head(met1)
+head(met2)
+```
+
+#2. Combine the two years of data into one data frame. 
+#Use the Date variable to create a new column for year, which will serve as an identifier. 
+#Change the names of the key variables so that they are easier to refer to in your code.
+```{r}
+install.packages("dplyr")
+library(dplyr)
+  total <- rbind(met1, met2)
+  total <- mutate(total, year = factor(rep(c(2004, 2019), c(nrow(met1), nrow(met2))))) %>%
+      rename(total, Parameter_Occurrence_Code = POC)
+```
+
+#3. Create a basic map in leaflet() that shows the locations of the sites (make sure to use different colors for each year). Summarize the spatial distribution of the monitoring sites.
+```{r}
+Sys.setenv(PROJ_LIBS = "/opt/homebrew/opt/proj/lib")
+Sys.setenv(SQLITE3_LIBS = "/opt/homebrew/opt/sqlite/lib")
+
+install.packages('terra', configure.args=c('--with-proj-include=/opt/homebrew/bin/proj/include/','--with-proj-lib=/opt/homebrew/bin/proj/lib/', '--with-proj=/opt/homebrew/bin/proj/') )
+
+install.packages("webshot")
+webshot::install_phantomjs()
+library(leaflet)
+library(webshot)
+
+SiteName.pal <- colorNumeric(c('darkgreen','goldenrod'), domain=total$year)
+SiteName.pal 
+
+install.packages("raster")
+install.packages("leaflet")
+library("leaflet")
+unlink("Users/chenjiawen/Library/R/arm64/4.2/library/raster", recursive = TRUE).
+```
+
+#4.Check for any missing or implausible values of PM in the combined dataset. 
+#Explore the proportions of each and provide a summary of any temporal patterns you see in these observations.
+```{r}
+is.na(total)
+which(is.na(total))
+sum(is.na(total$year)/prod(dim(total$year)))*100
+mean(is.na(total$Date))
+mean(is.na(total$Source))
+mean(is.na(total$Date))
+```
+
+#5. Explore the main question of interest at three different spatial levels. 
+#Create exploratory plots (e.g. boxplots, histograms, line plots) and summary statistics that best suit each level of data. Be sure to write up explanations of what you observe in these data.
+
+#state
+#county
+#site in Los Angeles
+```{r}
+hist(total$elev, breaks=100)
+ggplot() + 
+  geom_histogram(mapping = aes())
+```
+
