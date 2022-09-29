@@ -1,0 +1,136 @@
+---
+title: "title 06"
+date: "r sys.Date"
+output: github_document
+always_allow_html: true
+---
+
+```{R}
+library(tidytext)
+library(tidyverse)
+library(dtplyr)
+library(dplyr)
+library(ggplot2)
+library(forcats)
+```
+
+```{r}
+if (!file.exists("mtsamples.csv"))
+  download.file(
+    url = "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/00_mtsamples/mtsamples.csv",
+    destfile = "mtsamples.csv",
+    method   = "libcurl",
+    timeout  = 60
+    )
+mts <- read.csv("mtsamples.csv")
+str(mts)
+mts <- as_tibble(mts)
+mts
+```
+# Question 1: What specialties do we have?
+We can use count() from dplyr to figure out how many different catagories do we have? Are these catagories related? overlapping? evenly distributed?
+```{r medical-specialties}
+specialties <-
+mts %>%
+  count(medical_specialty)
+
+specialties %>%
+  arrange(desc(n))
+```
+there are 'r nrows(specialties)' medical specialties
+
+# Question 2
+Tokenize the the words in the transcription column
+Count the number of times each token appears
+Visualize the top 20 most frequent words
+Explain what we see from this result. Does it makes sense? What insights (if any) do we get?
+```{r barplot-of-specialty-counts}
+specialties %>%
+  top_n(10) %>%
+  ggplot(aes(n, fct_reorder(medical_specialty, n))) +
+  geom_col()
+```
+# Q2 Tokenize the the words in the transcription column
+Count the number of times each token appears
+Visualize the top 20 most frequent words
+Explain what we see from this result. Does it makes sense? What insights (if any) do we get?
+```{r token-transciption, cache = TRUE}
+mts %>%
+  unnest_tokens(word, transcription) %>% #unnset_tokens break up the paragraph in "transcription"
+  anti_join(stop_words, by = c("word")) %>% #filter: words in my dataset that matches stop_words will be removed 
+  count(word, sort = TRUE) %>%
+  # use regular expression to filter 
+  filter( !grepl(pattern="^[0-9]+$", x=word)) %>% #grepl is key word for comparing strings, [0-9]+$ means all numbers, !=don't save 
+  top_n(20,n) %>%
+     ggplot(aes(n, fct_reorder(word, n))) +
+  geom_col()
+```
+A lot of stopwards here
+
+#Question 3
+Redo visualization but remove stopwords before
+Bonus points if you remove numbers as well
+What do we see know that we have removed stop words? Does it give us a better idea of what the text is about?
+
+# 4.repeat question 2, but this time tokenize into bi-grams. how does the result change if you look at tri-grams?
+```{r bigrams-transcription, cache=TRUE}
+mts %>%
+  unnest_ngrams(bigram, transcription, n=2) %>% #bigram is the variable name
+  count(bigram, sort = TRUE) %>% #count frequency , sort does sort from the largest to smallest 
+  top_n(20,n) %>%
+     ggplot(aes(n, fct_reorder(bigram, n))) +
+  geom_col()
+```
+
+```{r trigrams-transcription, cache=TRUE}
+mts %>%
+  unnest_ngrams(trigram, transcription, n=3) %>%
+  count(trigram, sort = TRUE) %>%
+  top_n(20,n) %>%
+     ggplot(aes(n, fct_reorder(trigram, n))) +
+  geom_col()
+```
+Top 20 trigrams seemed to return a few more medical with 
+
+#5. Using the results you got from questions 4. Pick a word and count the words that appears after and before it.
+```{r bigrams-transcription-before-patient, cache=TRUE}
+ptbigram <-
+mts %>%
+  unnest_ngrams(bigram, transcription, n=2) %>%
+  separate(bigram, into = c("word1", "word2"), sep = " ") %>%
+  select(word1, word2) %>%
+  filter(word1 == "patient" | word2 == "patient") #every row has the word patient, either word 1 or word 2 
+```
+words appearing before patient:
+
+```{r }
+ptbigram %>%
+  filter(word2=="patient") %>%
+   count(word1, sort = TRUE) %>%
+   anti_join(stop_words, by = c("word1"="word")) %>% #any word in word1 that also matches stop_words, which is a dataset in r, filter them out
+   top_n(10) %>%
+   knitr::kable()
+```
+
+```{r }
+ptbigram %>%
+  filter(word1=="patient") %>%
+   count(word2, sort = TRUE) %>%
+   anti_join(stop_words, by = c("word2"="word")) %>%
+   top_n(10) %>%
+   knitr::kable()
+```
+
+# 6. Which words are most used in each of the specialties. you can use group_by() and top_n() from dplyr to have the calculations be done within each specialty. Remember to remove stopwords. How about the most 5 used words?
+```{r top5-words-per-specialty, cahce=TRUE}
+mts %>%
+  unnest_tokens(word, transcription) %>%
+  group_by(medical_specialty) %>%
+  count(word, sort = TRUE) %>%
+  # use regular expression to filter 
+  filter( !(word %in% stop_words$word) & !grepl(pattern="^[0-9]+$", x=word)) %>% #!=don't save 
+  top_n(5,n) %>%
+  arrange(medical_specialty, desc(n)) %>%
+  knitr::kable()
+```
+
