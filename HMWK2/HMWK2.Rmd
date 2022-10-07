@@ -1,0 +1,110 @@
+---
+title: "HMWK2"
+author: "Jiawen"
+date: "2022-10-06"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(readr)
+library(readxl)
+library(lubridate)
+library(psych)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(leaflet)
+```
+
+```{r read data}
+chsindividual <- read_csv("chs_individual.csv")
+chsregional   <- read_csv("chs_regional.csv")
+```
+
+
+```{r}
+#merge two datasets using the location variable
+chsmerged <-
+  chsindividual %>%
+  full_join(chsregional, by="townname")
+```
+
+#1.After merging the data, make sure you don’t have any duplicates by counting the number of rows. Make sure it matches. have question here
+```{r}
+dim(chsmerged)
+dim(chsindividual)
+```
+The two datasets have same number of rows which is 12, so it seems that there is no duplicates
+
+#In the case of missing values, impute data using the average within the variables “male” and “hispanic.”
+```{r}
+# mutate male and hispanic, then calculate the mean of new value?
+which(is.na(chsindividual$male))
+which(is.na(chsindividual$hispanic))
+
+chsmerged [, bmiimp := fcoalesce(bmi, mean(bmi, na.rm = TRUE)),
+by = .(male,hispanic)]
+```
+it shows there is no missing value in case of Male and hispanic?
+
+#2.1 create a new categorical variable named “obesity_level” using the BMI measurement (underweight BMI<14; normal BMI 14-22; overweight BMI 22-24; obese BMI>24)
+```{r}
+    chsmerged[, obesity_level := fifelse(bmi<14, "underweight", 
+    fifelse(bmi<22, "normal",
+    fifelse(bmi=24, "overweight", "obese")))]
+```
+
+#2.2 To make sure the variable is rightly coded, create a summary table that contains the minimum BMI, maximum BMI, and the total number of observations per category.
+```{r}
+chsmerged <- 
+  list(
+  "min"=~min(bmi),
+  "max"=~max(bmi))
+   knitr::kable()
+```
+
+#3. Create another categorical variable named “smoke_gas_exposure” that summarizes “Second Hand Smoke” and “Gas Stove.” The variable should have four categories in total.
+```{r}
+    chsmerged [, smoke_gas_exposure := fifelse(
+    smoke == 0 & gasstove == 0, "no_exposure",
+    fifelse(smoke == 1 & gasstove == 0, "smoke_exposure",
+    fifelse(smoke == 0 & gasstove == 1, "gas_exposure","both")))]
+```
+
+#4. Create four summary tables showing the average (or proportion, if binary) and sd of “Forced expiratory volume in 1 second (ml)” and asthma indicator by town, sex, obesity level, and “smoke_gas_exposure.”
+```{r}
+
+```
+
+#EDA 1.Facet plot showing scatterplots with regression lines of BMI vs FEV by “townname”.
+```{r}
+
+```
+
+#EDA 2.Stacked histograms of FEV by BMI category and FEV by smoke/gas exposure. Use different color schemes than the ggplot default.
+```{r}
+
+```
+
+#EDA 3. Barchart of BMI by smoke/gas exposure.
+```{r}
+
+```
+
+#EDA 4. Statistical summary graphs of FEV by BMI and FEV by smoke/gas exposure category.
+```{r}
+
+```
+
+#EDA 5. A leaflet map showing the concentrations of PM2.5 mass in each of the CHS communities.
+```{r}
+
+```
+
+#EDA 6. Choose a visualization to examine whether PM2.5 mass is associated with FEV.
+```{r}
+
+```
+
+
