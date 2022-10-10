@@ -2,7 +2,8 @@
 title: "HMWK2"
 author: "Jiawen"
 date: "2022-10-06"
-output: html_document
+output: github_document
+always_allow_html: true
 ---
 
 ```{r}
