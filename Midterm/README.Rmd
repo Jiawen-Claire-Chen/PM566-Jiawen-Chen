@@ -1,0 +1,155 @@
+---
+title: "Midterm"
+author: "Jiawen"
+date: "2022-10-22"
+output: github_document
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+```
+
+
+```{r}
+library(readr)
+library(readxl)
+library(lubridate)
+library(psych)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(leaflet)
+library(tidyr)
+library(tidyselect)
+install.packages("ggformula")
+install.packages("ggstance")
+library(ggformula)
+library(ggstance)
+library(tidyverse)
+```
+
+#1. Introduction: I got this dataset from "https://data.humdata.org/dataset/novel-coronavirus-2019-ncov-cases?". These two datasets are about the accumulated-confirmed and death cases of different countries around the world throughout the whole pandemic (1/22/20-10/13/22).Questions: the main goal is to compare and visualize China and the US data. Frist, we need to download them and converted the empty columns to NA
+```{r}
+download.file("https://data.humdata.org/hxlproxy/api/data-preview.csv?url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_confirmed_global.csv&filename=time_series_covid19_confirmed_global.csv", "time_series_covid19_confirmed_global.csv", method="libcurl", timeout = 60)
+confirmed <- read.csv("time_series_covid19_confirmed_global.csv", header = TRUE, na.strings = c("", " "))
+ 
+download.file("https://data.humdata.org/hxlproxy/api/data-preview.csv?url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_deaths_global.csv&filename=time_series_covid19_deaths_global.csv", "time_series_covid19_deaths_global.csv", methos="libcurl", timeout = 60)
+deaths <- read.csv("time_series_covid19_deaths_global.csv", header = TRUE, na.strings = c("", " "))
+```
+#We have variales called "province" ""Country/Region", "Lat", "Long" and different dates
+
+#2. Transform the confirmed and deaths data of these two countries into dataframes 
+```{r}
+chinaconfirmed <-
+  confirmed %>%
+  filter(Country.Region == "China")
+
+usconfirmed <-
+  confirmed %>%
+  filter(Country.Region == "US")
+
+chinadeaths <-
+  deaths %>%
+  filter(Country.Region == "China")
+
+usdeaths <-
+  deaths %>%
+  filter(Country.Region == "US")
+```
+
+#3. those dataframes are represented as a single row with the date values as columns. This format is not ideal and cannot be graphed or used in model creation, Now lets reshape the data frames, transform date into normal numerical form
+```{r}
+chinaconfirmed %>%
+   pivot_longer(cols= -one_of('Country.Region','Province.State','Lat','Long')
+               ,names_to = 'Date'
+               ,values_to = 'Confirmed') ->
+  chinaconfirmed
+    # remove the X infront of date and convert date to normal date datatype
+    chinaconfirmed$Date <- sapply(chinaconfirmed$Date,function(x) {x <- gsub("X","",x)})
+    chinaconfirmed$Date <- as.Date(chinaconfirmed$Date, "%m.%d.%y")
+    
+usconfirmed %>%
+   pivot_longer(cols= -one_of('Country.Region','Province.State','Lat','Long')
+               ,names_to = 'Date'
+               ,values_to = 'Confirmed') ->
+  usconfirmed
+    usconfirmed$Date <- sapply(usconfirmed$Date,function(x) {x <- gsub("X","",x)})
+    usconfirmed$Date <- as.Date(usconfirmed$Date, "%m.%d.%y")
+    
+chinadeaths %>%
+   pivot_longer(cols= -one_of('Country.Region','Province.State','Lat','Long')
+               ,names_to = 'Date'
+               ,values_to = 'Confirmed') ->
+  chinadeaths
+    chinadeaths$Date <- sapply(chinadeaths$Date,function(x) {x <- gsub("X","",x)})
+    chinadeaths$Date <- as.Date(chinadeaths$Date, "%m.%d.%y")    
+    
+usdeaths %>%
+   pivot_longer(cols= -one_of('Country.Region','Province.State','Lat','Long')
+               ,names_to = 'Date'
+               ,values_to = 'Confirmed') ->
+  usdeaths
+    usdeaths$Date <- sapply(usconfirmed$Date,function(x) {x <- gsub("X","",x)})
+    usdeaths$Date <- as.Date(usconfirmed$Date, "%m.%d.%y")    
+```
+
+#graphs of china and US confirmed and deaths cases
+```{r}
+chinaconfirmed %>%
+  group_by(Date) %>%
+  ggplot(aes(x = Date, y = Confirmed, color=Province.State, line=Province.State)) +
+  geom_point(size=0.5, alpha=1) 
+
+usconfirmed %>%
+  group_by(Date) %>%
+  ggplot(aes(x = Date, y = Confirmed)) +
+  geom_point(size=0.5, alpha=1) 
+
+chinadeaths %>%
+  group_by(Date) %>%
+  ggplot(aes(x = Date, y = Confirmed, color=Province.State, line=Province.State)) +
+  geom_point(size=0.5, alpha=1) 
+
+usdeaths %>%
+  group_by(Date) %>%
+  ggplot(aes(x = Date, y = Confirmed)) +
+  geom_point(size=0.5, alpha=1) 
+```
+
+#let's make those two contries in comparision
+```{r}
+   confirmed %>%
+   pivot_longer(cols= -one_of('Country.Region','Province.State','Lat','Long')
+               ,names_to = 'Date'
+               ,values_to = 'Confirmed') ->
+    confirmed
+    confirmed$Date <- sapply(confirmed$Date,function(x) {x <- gsub("X","",x)})
+    confirmed$Date <- as.Date(confirmed$Date, "%m.%d.%y")
+
+  confirmed %>%
+  filter(Country.Region %in% c("US", "China")) %>%
+  group_by(Country.Region, Date) %>% 
+  summarise(Confirmed = sum(Confirmed)) %>% 
+  gf_point(Confirmed ~ Date) %>%
+  gf_facet_grid(Country.Region ~ ., scales = "free")
+ 
+  #deaths case
+  deaths %>%
+   pivot_longer(cols= -one_of('Country.Region','Province.State','Lat','Long')
+               ,names_to = 'Date'
+               ,values_to = 'Confirmed') ->
+    deaths
+    deaths$Date <- sapply(confirmed$Date,function(x) {x <- gsub("X","",x)})
+    deaths$Date <- as.Date(confirmed$Date, "%m.%d.%y")
+    
+  deaths %>%
+  filter(Country.Region %in% c("US", "China")) %>%
+  group_by(Country.Region, Date) %>% 
+  summarise(Confirmed = sum(Confirmed)) %>% 
+  gf_point(Confirmed ~ Date) %>%
+  gf_facet_grid(Country.Region ~ ., scales = "free")
+```
+#We can conclude from those graphs, China started confirming cases ealier than the US but the confirmed and deaths cases increased slightly until the beginning of 2022. However, the overall deaths and confirmed cases in the US are significantly higher than China. 
+
